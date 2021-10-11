@@ -53,6 +53,10 @@ const connectTimeout = 30 * time.Second
 // that is known to exist at the RemotePeer times out with no matching reply.
 const stallTimeout = 30 * time.Second
 
+// writeTimeout is the amount of time to wait for a message to be written over
+// a net.Conn after which it silently gives up.
+const writeTimeout = 10 * time.Second
+
 const banThreshold = 100
 
 const invLRUSize = 5000
@@ -416,6 +420,7 @@ func (rp *RemotePeer) writeMessages(ctx context.Context) error {
 				}
 			}
 			log.Debugf("%v -> %v", m.msg.Command(), rp.raddr)
+			c.SetWriteDeadline(time.Now().Add(writeTimeout))
 			err := wire.WriteMessage(c, m.msg, pver, cnet)
 			if m.ack != nil {
 				m.ack <- struct{}{}
