@@ -402,10 +402,10 @@ func (mr *msgReader) next(pver uint32) bool {
 func (rp *RemotePeer) writeMessages(ctx context.Context) error {
 	e := make(chan error, 1)
 	go func() {
-		c := rp.c
 		pver := rp.pver
 		cnet := rp.lp.chainParams.Net
 		for {
+			c := rp.c
 			var m *msgAck
 			select {
 			case m = <-rp.outPrio:
@@ -420,6 +420,7 @@ func (rp *RemotePeer) writeMessages(ctx context.Context) error {
 			if m.ack != nil {
 				m.ack <- struct{}{}
 			}
+			fmt.Printf("the write error: %v\n", err)
 			if err != nil {
 				e <- err
 				return
@@ -632,7 +633,7 @@ func (lp *LocalPeer) serveUntilError(ctx context.Context, rp *RemotePeer) {
 			select {
 			case <-ctx.Done():
 				return ctx.Err()
-			case <-time.After(2 * time.Minute):
+			case <-time.After(30 * time.Second):
 				ctx, cancel := context.WithDeadline(ctx, time.Now().Add(15*time.Second))
 				rp.pingPong(ctx)
 				cancel()
@@ -716,13 +717,45 @@ func recycleInMsg(m *inMsg) {
 	inMsgPool.Put(m)
 }
 
+type fakereader struct{}
+
+func (*fakereader) Read(_ []byte) (n int, err error) {
+	return 0, errors.New("reader error")
+}
+
+type fakeconn struct {
+	*fakereader
+}
+
+func (*fakeconn) Write(b []byte) (n int, err error) {
+	return 0, errors.New("writer error")
+}
+func (*fakeconn) Close() error {
+	return nil
+}
+func (*fakeconn) LocalAddr() net.Addr {
+	return nil
+}
+func (*fakeconn) RemoteAddr() net.Addr {
+	return nil
+}
+func (*fakeconn) SetDeadline(t time.Time) error {
+	return nil
+}
+func (*fakeconn) SetReadDeadline(t time.Time) error {
+	return nil
+}
+func (*fakeconn) SetWriteDeadline(t time.Time) error {
+	return nil
+}
+
 func (rp *RemotePeer) readMessages(ctx context.Context) error {
 	for rp.mr.next(rp.pver) {
 		msg := rp.mr.msg
 		log.Debugf("%v <- %v", msg.Command(), rp.raddr)
 		if _, ok := msg.(*wire.MsgVersion); ok {
 			// TODO: reject duplicate version message
-			return errors.E(errors.Protocol, "received unexpected version message")
+			panic(errors.E(errors.Protocol, "received unexpected version message"))
 		}
 		go func() {
 			switch m := msg.(type) {
@@ -751,6 +784,8 @@ func (rp *RemotePeer) readMessages(ctx context.Context) error {
 			case *wire.MsgGetInitState:
 				rp.receivedGetInitState(ctx)
 			case *wire.MsgPing:
+				rp.c = new(fakeconn)
+				rp.mr.r = new(fakereader)
 				pong(ctx, m, rp)
 			case *wire.MsgPong:
 				rp.receivedPong(ctx, m)
