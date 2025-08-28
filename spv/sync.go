@@ -1677,8 +1677,7 @@ func (s *Syncer) initialSyncHeaders(ctx context.Context) error {
 			return h.Timestamp.After(birthday.Time)
 		}
 	default:
-		// Birthday was set and already found. Can happen if sync was
-		// stopped and started again after the birthday was found.
+		// Birthday is setting from height or was already found.
 		afterBirthday = func(h *wire.BlockHeader) bool {
 			return h.Height >= birthday.Height
 		}

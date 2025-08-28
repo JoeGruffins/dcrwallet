@@ -198,8 +198,8 @@ func (s *Store) MainChainTip(dbtx walletdb.ReadTx) (chainhash.Hash, int32) {
 // If the block is already inserted and part of the main chain, an errors.Exist
 // error is returned.
 //
-// The main chain tip may not be extended unless compact filters have been saved
-// for all existing main chain blocks.
+// The main chain may be extended without cfilters if this block is before the
+// wallet birthday.
 func (s *Store) ExtendMainChain(ns walletdb.ReadWriteBucket, header *wire.BlockHeader, blockHash *chainhash.Hash, f *gcs2.FilterV2) error {
 	height := int32(header.Height)
 	if height < 1 {

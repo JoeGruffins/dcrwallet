@@ -1986,6 +1986,9 @@ func valueRawCFilter2(key [16]byte, data []byte) []byte {
 }
 
 func putRawCFilter(ns walletdb.ReadWriteBucket, k, v []byte) error {
+	if len(v) < 16 {
+		return errors.E(errors.IO, errors.Errorf("cfilter data len must be 16 bytes but got %d bytes", len(v)))
+	}
 	return ns.NestedReadWriteBucket(bucketCFilters).Put(k, v)
 }
 
